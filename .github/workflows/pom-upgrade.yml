@@ -8,7 +8,7 @@ on:
         required: true
         type: string
     secrets:
-      GITHUB_TOKEN:
+      TOKEN:
         required: true
 
 jobs:
@@ -99,4 +99,4 @@ jobs:
             echo "✅ Version is upgraded to $pr_version."
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
