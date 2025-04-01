@@ -1,0 +1,102 @@
+name: Check for pom.xml Version Upgrade
+
+on:
+  workflow_call:
+    inputs:
+      base-branch:
+        description: 'Base branch for the comparison'
+        required: true
+        type: string
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  check-version-upgrade:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install xmllint
+        run: sudo apt-get install -y libxml2-utils
+
+      - name: Fetch All Branch
+        run: |
+          git fetch --unshallow || true
+          git fetch origin ${{ inputs.base-branch }} --depth=1
+
+      - name: Validate for pom.xml is Modified
+        id: check_pom
+        run: |
+          echo "Checking for pom.xml changes..."
+          if git diff --name-only origin/${{ inputs.base-branch }}...HEAD | grep -q "pom.xml"; then
+            echo "✅ pom.xml is modified."
+            echo "pom_modified=true" >> $GITHUB_ENV
+          else
+            echo "🚨 pom.xml is not modified."
+            echo "pom_modified=false" >> $GITHUB_ENV
+          fi
+
+      - name: Fetch PR Version from pom.xml
+        if: env.pom_modified == 'true'
+        id: pr_version
+        run: |
+          PR_VERSION=$(xmllint --xpath "//*[local-name()='project']/*[local-name()='version']/text()" pom.xml || echo "")
+          if [ -z "$PR_VERSION" ]; then
+            echo "🚨 Failed to extract PR version from pom.xml."
+            exit 1
+          else
+            echo "pr_version=$PR_VERSION" >> $GITHUB_ENV
+          fi
+
+      - name: Fetch Base Branch and get version
+        if: env.pom_modified == 'true'
+        id: base_version
+        run: |
+          git fetch origin ${{ inputs.base-branch }}
+          git checkout ${{ inputs.base-branch }}
+          BASE_VERSION=$(xmllint --xpath "//*[local-name()='project']/*[local-name()='version']/text()" pom.xml || echo "")
+          if [ -z "$BASE_VERSION" ]; then
+            echo "🚨 Failed to extract Base version from pom.xml."
+            exit 1
+          else
+            echo "base_version=$BASE_VERSION" >> $GITHUB_ENV
+          fi
+          git checkout -
+
+      - name: Debug
+        run: |
+          echo "pom_modified: ${{ env.pom_modified }}"
+          echo "pr_version: ${{ env.pr_version }}"
+          echo "base_version: ${{ env.base_version }}"
+
+      - name: Comment if pom.xml is Not Modified
+        if: env.pom_modified == 'false'
+        run: |
+          COMMENT="🚨 **pom.xml is not modified!** This PR must update the \`pom.xml\` version before merging."
+          gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --method POST \
+            --field body="$COMMENT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare Versions & Comment if Not Updated
+        if: env.pom_modified == 'true'
+        run: |
+          if [ "$pr_version" == "$base_version" ]; then
+            COMMENT="🚨 **Version in pom.xml has not been updated!** Please update the version before merging this PR.  
+            ⚠️ **Current version:** \`$base_version\`  
+            🚀 **Expected new version:** Should be incremented."
+            gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+              --method POST \
+              --field body="$COMMENT"
+            exit 1
+          else
+            echo "✅ Version is upgraded to $pr_version."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
