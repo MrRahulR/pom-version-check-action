@@ -24,12 +24,12 @@ jobs:
       - name: Install xmllint
         run: sudo apt-get install -y libxml2-utils
 
-      - name: Fetch All Branch
+      - name: 🛠️ Fetch All Branch
         run: |
           git fetch --unshallow || true
           git fetch origin ${{ inputs.base-branch }} --depth=1
 
-      - name: Validate for pom.xml is Modified
+      - name: ⚠️ Validate for pom.xml is Modified
         id: check_pom
         run: |
           echo "Checking for pom.xml changes..."
@@ -41,7 +41,7 @@ jobs:
             echo "pom_modified=false" >> $GITHUB_ENV
           fi
 
-      - name: Fetch PR Version from pom.xml
+      - name: 🛠️ Fetch PR Version from pom.xml
         if: env.pom_modified == 'true'
         id: pr_version
         run: |
@@ -53,7 +53,7 @@ jobs:
             echo "pr_version=$PR_VERSION" >> $GITHUB_ENV
           fi
 
-      - name: Fetch Base Branch and get version
+      - name: 🛠️ Fetch Base Branch and get version
         if: env.pom_modified == 'true'
         id: base_version
         run: |
@@ -68,13 +68,7 @@ jobs:
           fi
           git checkout -
 
-      - name: Debug
-        run: |
-          echo "pom_modified: ${{ env.pom_modified }}"
-          echo "pr_version: ${{ env.pr_version }}"
-          echo "base_version: ${{ env.base_version }}"
-
-      - name: Comment if pom.xml is Not Modified
+      - name: 🚨 Comment if pom.xml is Not Modified
         if: env.pom_modified == 'false'
         run: |
           COMMENT="🚨 **pom.xml is not modified!** This PR must update the \`pom.xml\` version before merging."
@@ -84,7 +78,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compare Versions & Comment if Not Updated
+      - name: ⇆ Compare Versions & Comment if Not Updated
         if: env.pom_modified == 'true'
         run: |
           if [ "$pr_version" == "$base_version" ]; then
