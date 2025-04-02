@@ -71,7 +71,8 @@ jobs:
       - name: 🚨 Comment if pom.xml is Not Modified
         if: env.pom_modified == 'false'
         run: |
-          COMMENT="🚨 **pom.xml is not modified!** This PR must update the \`pom.xml\` version before merging."
+          PR_OWNER="@${{ github.event.pull_request.user.login }}"
+          COMMENT="🚨 Hi $PR_OWNER **pom.xml is not modified!** This PR must update the \`pom.xml\` version before merging."
           gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
             --method POST \
             --field body="$COMMENT"
@@ -81,8 +82,9 @@ jobs:
       - name: ⇆ Compare Versions & Comment if Not Updated
         if: env.pom_modified == 'true'
         run: |
+          PR_OWNER="@${{ github.event.pull_request.user.login }}"
           if [ "$pr_version" == "$base_version" ]; then
-            COMMENT="🚨 **Version in pom.xml has not been updated!** Please update the version before merging this PR.  
+            COMMENT="🚨 Hi $PR_OWNER **Version in pom.xml has not been updated!** Please update the version before merging this PR.  
             ⚠️ **Current version:** \`$base_version\`  
             🚀 **Expected new version:** Should be incremented."
             gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
